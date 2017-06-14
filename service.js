@@ -39,6 +39,7 @@ seneca.options.sanitizeTextArea = {
 };
 seneca.decorate('customValidatorLogFormatter', require('./lib/custom-validator-log-formatter'));
 seneca.use(store, config['postgresql-store']);
+seneca.use(require('seneca-amqp-transport'));
 seneca.use(require('./lib/cd-events'), {logger: log.logger});
 seneca.use(require('cp-permissions-plugin'), {
   config: __dirname + '/config/permissions'
