@@ -1,7 +1,7 @@
-var postgrator = require('postgrator');
-var config = require('./config/config.js')();
+const postgrator = require('postgrator');
+const config = require('./config/config.js')();
 
-module.exports = function migrate (cb) {
+module.exports = function migrate(cb) {
   postgrator.setConfig({
     migrationDirectory: './scripts/database/pg/migrations',
     driver: 'pg',
@@ -9,12 +9,10 @@ module.exports = function migrate (cb) {
     database: config['postgresql-store'].name,
     username: config['postgresql-store'].username,
     password: config['postgresql-store'].password,
-    newline: 'LF'
+    newline: 'LF',
   });
 
-  postgrator.migrate('max', function (err, migrations) {
-    postgrator.endConnection(function () {
-      return cb(err, migrations);
-    });
+  postgrator.migrate('max', (err, migrations) => {
+    postgrator.endConnection(() => cb(err, migrations));
   });
 };

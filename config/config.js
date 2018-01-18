@@ -1,70 +1,65 @@
-var path = require('path');
-var camelCase = require('camelcase');  // Lodash functions for that are stripping $ which we use for special keys
-var decamelize = require('decamelize');
+const path = require('path');
+const camelCase = require('camelcase'); // Lodash functions for that are stripping $ which we use for special keys
+const decamelize = require('decamelize');
 
-module.exports = function (options) {
-  function pgConfig () {
-    return {
-      name: process.env.POSTGRES_NAME,
-      host: process.env.POSTGRES_HOST || '127.0.0.1',
-      port: process.env.POSTGRES_PORT || 5432,
-      username: process.env.POSTGRES_USERNAME,
-      password: process.env.POSTGRES_PASSWORD,
-      nolimit: true,
-      fromColumnName: (attr) => camelCase(attr),
-      toColumnName: (attr) => decamelize(attr)
-    };
-  }
-  function kueConfig () {
-    return {
-      start: process.env.KUE_REQUIRED,
-      redis: {
-        host: process.env.KUE_HOST || 'localhost',
-        port: process.env.KUE_PORT || '6379'
-      }
-    };
-  }
+const pgConfig = () => ({
+  name: process.env.POSTGRES_NAME,
+  host: process.env.POSTGRES_HOST || '127.0.0.1',
+  port: process.env.POSTGRES_PORT || 5432,
+  username: process.env.POSTGRES_USERNAME,
+  password: process.env.POSTGRES_PASSWORD,
+  nolimit: true,
+  fromColumnName: attr => camelCase(attr),
+  toColumnName: attr => decamelize(attr),
+});
 
-  return {
-    'postgresql-store': pgConfig(),
-    'kue': kueConfig(),
-    'email-notifications': {
-      sendemail: true,
-      email: {
-        'invite-user-en_US': {
-          subject: 'New Dojo Invitation'
-        },
-        'user-request-to-join-en_US': {
-          subject: 'New Request to join your Dojo'
-        },
-        'user-left-dojo-en_US': {
-          subject: 'A user has left your Dojo'
-        }
-      }
-    },
-    mail: {
-      folder: path.resolve(__dirname + '/../email-templates'),
-      mail: {
-        from: 'no-reply@coderdojo.com'
+const kueConfig = () => ({
+  start: process.env.KUE_REQUIRED,
+  redis: {
+    host: process.env.KUE_HOST || 'localhost',
+    port: process.env.KUE_PORT || '6379',
+  },
+});
+
+module.exports = options => ({
+  'postgresql-store': pgConfig(),
+  kue: kueConfig(),
+  'email-notifications': {
+    sendemail: true,
+    email: {
+      'invite-user-en_US': {
+        subject: 'New Dojo Invitation',
       },
-      config: {
-        host: process.env.MAIL_HOST,
-        port: process.env.MAIL_PORT,
-        auth: {
-          user: process.env.MAIL_USER,
-          pass: process.env.MAIL_PASS
-        }
-      }
+      'user-request-to-join-en_US': {
+        subject: 'New Request to join your Dojo',
+      },
+      'user-left-dojo-en_US': {
+        subject: 'A user has left your Dojo',
+      },
     },
-    transport: {
-      type: 'web',
-      web: {
-        timeout: 120000,
-        port: options && options.port ? options.port : 10306
-      }
+  },
+  mail: {
+    folder: path.resolve(`${__dirname}/../email-templates`),
+    mail: {
+      from: 'no-reply@coderdojo.com',
     },
-    timeout: 120000,
-    strict: {add: false, result: false},
-    actcache: {active: false}
-  };
-};
+    config: {
+      host: process.env.MAIL_HOST,
+      port: process.env.MAIL_PORT,
+      auth: {
+        user: process.env.MAIL_USER,
+        pass: process.env.MAIL_PASS,
+      },
+    },
+  },
+  transport: {
+    type: 'web',
+    web: {
+      timeout: 120000,
+      port: options && options.port ? options.port : 10306,
+    },
+  },
+  timeout: 120000,
+  strict: { add: false, result: false },
+  actcache: { active: false },
+});

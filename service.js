@@ -1,20 +1,22 @@
-'use strict';
 process.setMaxListeners(0);
 require('events').EventEmitter.prototype._maxListeners = 100;
 
 const senecaNR = require('seneca-newrelic');
 const newrelic = process.env.NEW_RELIC_ENABLED === 'true' ? require('newrelic') : undefined;
 
-var config = require('./config/config.js')();
-var seneca = require('seneca')(config);
-var util = require('util');
-var _ = require('lodash');
-var store = require('seneca-postgresql-store');
-var storeQuery = require('seneca-store-query');
-var dgram = require('dgram');
-var service = 'cp-events-service';
-var sanitizeHtml = require('sanitize-html');
-var log = require('cp-logs-lib')({ name: service, level: 'warn' });
+const config = require('./config/config.js')();
+const seneca = require('seneca')(config);
+const util = require('util');
+const _ = require('lodash');
+const store = require('seneca-postgresql-store');
+const storeQuery = require('seneca-store-query');
+const { escapeStr: escape } = require('seneca-store-query/lib/relational-util');
+const network = require('./network');
+
+const service = 'cp-events-service';
+const sanitizeHtml = require('sanitize-html');
+const log = require('cp-logs-lib')({ name: service, level: 'warn' });
+
 config.log = log.log;
 
 if (process.env.NODE_ENV !== 'production') {
@@ -38,26 +40,27 @@ seneca.options.sanitizeTextArea = {
      *
      * However ng-bind-html strips the style tag, so you won't actually see custom styling.
      */
-    img: ['*']
-  })
+    img: ['*'],
+  }),
 };
+
 seneca.use(store, config['postgresql-store']);
 seneca.use(storeQuery);
 seneca.decorate('customValidatorLogFormatter', require('./lib/custom-validator-log-formatter'));
 seneca.use(require('./lib/cd-events'), { logger: log.logger });
 seneca.use(require('cp-permissions-plugin'), {
-  config: `${__dirname}/config/permissions`
+  config: `${__dirname}/config/permissions`,
 });
 
 if (!_.isUndefined(newrelic)) {
   seneca.use(senecaNR, {
     newrelic,
     roles: ['cd-events'],
-    filter (p) {
+    filter(p) {
       p.user = p.user ? p.user.id : undefined;
       p.login = p.login ? p.login.id : undefined;
       return p;
-    }
+    },
   });
 }
 
@@ -70,58 +73,48 @@ process.on('SIGTERM', shutdown);
 process.on('uncaughtException', shutdown);
 process.on('SIGUSR2', shutdown);
 
-function shutdown (err) {
-  var stopQueue = seneca.export('queues/queue').stopQueue;
+function shutdown(err) {
+  const stopQueue = seneca.export('queues/queue').stopQueue;
   stopQueue();
   if (err !== undefined) {
-    var error = {
+    const error = {
       date: new Date().toString(),
       msg: err.stack !== undefined
-        ? 'FATAL: UncaughtException, please report: ' + util.inspect(err.stack)
+        ? `FATAL: UncaughtException, please report: ${util.inspect(err.stack)}`
         : 'FATAL: UncaughtException, no stack trace',
-      err: util.inspect(err)
+      err: util.inspect(err),
     };
-    console.error(JSON.stringify(error));
+    console.error(JSON.stringify(error)); // eslint-disable-line
     process.exit(1);
   }
   process.exit(0);
 }
 
-require('./migrate-psql-db.js')(function (err) {
-  if (err) {
-    console.error(err);
-    process.exit(-1);
-  }
-  console.log('Migrations ok');
+require('./migrate-psql-db.js')((err) => {
+  if (err) return shutdown(err);
+  console.log('Migrations ok'); // eslint-disable-line
 
-  require('./network')(seneca);
+  network(seneca);
 
-  seneca.ready(function (err) {
-    if (err) return shutdown(err);
-    var message = new Buffer(service);
-    var client = dgram.createSocket('udp4');
-    client.send(message, 0, message.length, 11404, 'localhost', function (err, bytes) {
-      if (err) return shutdown(err);
-      client.close();
-    });
+  seneca.ready((error) => {
+    if (error) return shutdown(error);
 
-    var escape = require('seneca-store-query/lib/relational-util').escapeStr;
-    ['load', 'list'].forEach(function (cmd) {
-      seneca.wrap('role: entity, cmd: ' + cmd, function filterFields (args, cb) {
+    ['load', 'list'].forEach((cmd) => {
+      seneca.wrap(`role: entity, cmd: ${cmd}`, function filterFields(args, cb) {
         try {
-          ['limit$', 'skip$'].forEach(function (field) {
+          ['limit$', 'skip$'].forEach((field) => {
             if (
               args.q[field] &&
               args.q[field] !== 'NULL' &&
-              !/^[0-9]+$/g.test(args.q[field] + '')
+              !/^[0-9]+$/g.test(`${args.q[field]}`)
             ) {
               throw new Error('Expect limit$, skip$ to be a number');
             }
           });
           if (args.q.sort$) {
             if (args.q.sort$ && typeof args.q.sort$ === 'object') {
-              var order = args.q.sort$;
-              _.each(order, function (ascdesc, column) {
+              const order = args.q.sort$;
+              _.each(order, (ascdesc, column) => {
                 if (!/^[a-zA-Z0-9_]+$/g.test(column)) {
                   throw new Error('Unexpect characters in sort$');
                 }
@@ -131,14 +124,14 @@ require('./migrate-psql-db.js')(function (err) {
             }
           }
           if (args.q.fields$) {
-            args.q.fields$.forEach(function (field, index) {
-              args.q.fields$[index] = '\"' + escape(field) + '\"';
+            args.q.fields$.forEach((field, index) => {
+              args.q.fields$[index] = `"${escape(field)}"`;
             });
           }
           this.prior(args, cb);
-        } catch (err) {
+        } catch (wrapErr) {
           // cb to avoid seneca-transport to hang while waiting for timeout error
-          return cb(err);
+          return cb(wrapErr);
         }
       });
     });

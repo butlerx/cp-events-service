@@ -4,7 +4,7 @@
   "description": "seneca microservice for events",
   "main": "service.js",
   "scripts": {
-    "lint": "semistandard *.js config/config.js",
+    "lint": "eslint .",
     "testdata": "node test/lib/service.js",
     "test": "sh -c '. ./config/development.env; npm run lint && lab lib/controllers -P spec --ignore __core-js_shared__ '",
     "coverage": "sh -c '. ./config/development.env; lab --threshold 68 -r html -o ./coverage/coverage.html -r lcov -o ./coverage/lcov.info -r json -o ./coverage/coverage.json -r console -o stdout'",
@@ -28,7 +28,12 @@
     "lab": "14.x",
     "nodemon": "1.11.0",
     "pre-commit": "1.1.2",
-    "semistandard": "7.0.3",
+    "eslint": "^4.6.0",
+    "eslint-config-coderdojo": "^1.1.0",
+    "eslint-plugin-chai-friendly": "^0.4.0",
+    "eslint-plugin-import": "^2.7.0",
+    "eslint-plugin-jsx-a11y": "^5.1.1",
+    "eslint-plugin-react": "^7.3.0",
     "sinon": "^2.3",
     "sinon-chai": "^2.14.0"
   },

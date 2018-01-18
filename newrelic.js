@@ -13,7 +13,7 @@ exports.config = {
   license_key: '', // set via NEW_RELIC_LICENSE_KEY
   filepath: '/tmp/newrelic_agent_events.log',
   transaction_tracer: {
-    record_sql: 'obfuscated'
+    record_sql: 'obfuscated',
   },
   logging: {
     /**
@@ -21,6 +21,6 @@ exports.config = {
      * issues with the agent, 'info' and higher will impose the least overhead on
      * production applications.
      */
-    level: 'info'
-  }
+    level: 'info',
+  },
 };
